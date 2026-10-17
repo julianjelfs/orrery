@@ -44,9 +44,6 @@ canvas {
   cursor: grab;
 }
 
-@media (pointer: fine) {
-  main, main * { cursor: none !important; }
-}
 
 main.nogl {
   background:
@@ -277,6 +274,7 @@ main.nogl {
 }
 .go {
   pointer-events: auto;
+  cursor: pointer;
   margin-top: 18px;
   display: inline-flex;
   align-items: center;
@@ -382,28 +380,24 @@ main.nogl {
   pointer-events: none;
   z-index: 10;
 }
-.cursor::before, .cursor::after {
+/* The real pointer stays; this is only a glowing ring that blooms round it over a
+   planet. It follows the pointer event directly, so it never trails. */
+.cursor::before {
   content: '';
   position: absolute;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
+  border: 1.5px solid var(--c);
   transform: translate(-50%, -50%);
-  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), height 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s, box-shadow 0.3s;
-}
-.cursor::before {
-  width: 30px;
-  height: 30px;
-  border: 1px solid #ffffff66;
-}
-.cursor::after {
-  width: 4px;
-  height: 4px;
-  background: #fff;
+  opacity: 0;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
 }
 .cursor.hot::before {
-  width: 74px;
-  height: 74px;
-  border-color: var(--c);
-  box-shadow: 0 0 24px var(--c), inset 0 0 18px var(--c);
+  width: 64px;
+  height: 64px;
+  opacity: 1;
+  box-shadow: 0 0 20px var(--c), inset 0 0 14px var(--c);
 }
 
 @media (max-width: 640px) {

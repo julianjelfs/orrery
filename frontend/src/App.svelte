@@ -212,9 +212,8 @@
     }
   }
 
-  // Cursor: a ring that trails the mouse and swells over a world.
+  // A ring that blooms round the (real, visible) pointer over a world.
   let cursor = $state<HTMLDivElement>();
-  let cx = 0, cy = 0, tx = -100, ty = -100;
 
   onMount(() => {
     try {
@@ -249,29 +248,15 @@
     };
     window.addEventListener('pageshow', onShow);
 
-    let craf = 0;
     const moveCursor = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') {
-        tx = e.clientX;
-        ty = e.clientY;
-      }
+      if (e.pointerType === 'mouse' && cursor) cursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
     };
-    const cursorLoop = () => {
-      cx += (tx - cx) * 0.22;
-      cy += (ty - cy) * 0.22;
-      if (cursor) cursor.style.transform = `translate3d(${cx}px, ${cy}px, 0)`;
-      craf = requestAnimationFrame(cursorLoop);
-    };
-    if (!coarse) {
-      window.addEventListener('pointermove', moveCursor);
-      cursorLoop();
-    }
+    if (!coarse) window.addEventListener('pointermove', moveCursor);
 
     return () => {
       stopped = true;
       clearTimeout(timer);
       clearInterval(tick);
-      cancelAnimationFrame(craf);
       window.removeEventListener('pageshow', onShow);
       window.removeEventListener('pointermove', moveCursor);
       scene?.dispose();

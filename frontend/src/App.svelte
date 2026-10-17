@@ -151,6 +151,8 @@
     // Coming back to Orrery should show the whole system, not the last app still zoomed.
     selected = null;
     hovered = null;
+    // The tapped row keeps focus, and its focus handler would select it again on return.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   }
 
   function choose(id: string | null) {

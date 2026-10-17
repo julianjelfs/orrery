@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# Control Orrery, which runs on the Pi. Everything here drives that machine over SSH.
+set -euo pipefail
+
+PI="${ORRERY_PI_HOST:-julian_jelfs@pi.local}"
+REMOTE="orrery"
+# One URL at home and away: the Pi's subnet route carries it over the tailnet.
+HOUSE_URL="https://app.julianjelfs.co.uk"
+ROOT="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")/.." && pwd)"
+
+on_pi() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$PI" "$@"; }
+
+wait_healthy() {
+	for _ in $(seq 1 40); do
+		on_pi "curl -sf -m 1 http://127.0.0.1:8050/api/health" >/dev/null 2>&1 && return 0
+		sleep 0.5
+	done
+	return 1
+}
+
+case "${1:-open}" in
+	open) open "$HOUSE_URL" ;;
+	url) echo "$HOUSE_URL" ;;
+	ssh) exec ssh "$PI" ;;
+
+	status)
+		on_pi '
+			printf "app       : %s\n" "$(systemctl is-active orrery)"
+			printf "caddy     : %s\n" "$(systemctl is-active caddy)"
+			if curl -sf -m 3 http://127.0.0.1:8050/api/health >/dev/null; then
+				printf "api       : responding on 127.0.0.1:8050\n"
+				curl -s -m 5 http://127.0.0.1:8050/api/status | python3 -c "
+import json, sys
+for k, v in json.load(sys.stdin)[\"apps\"].items():
+    print(f\"  {k:<9}: {\"up\" if v[\"up\"] else \"DOWN\"}\")
+"
+			else
+				printf "api       : NOT responding\n"
+			fi
+			printf "cert until: %s\n" "$(echo | openssl s_client -connect 127.0.0.1:443 -servername app.julianjelfs.co.uk 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
+			printf "disk      : %s used\n" "$(df -h / | awk "NR==2 {print \$5}")"
+			printf "cpu temp  : %.1fC\n" "$(awk "{print \$1/1000}" /sys/class/thermal/thermal_zone0/temp)"
+			printf "uptime    : %s\n" "$(uptime -p)"
+		'
+		echo "url       : $HOUSE_URL"
+		;;
+
+	logs)    on_pi "sudo journalctl -u orrery -n ${2:-40} -f" ;;
+	start)   on_pi "sudo systemctl start orrery"; echo "started" ;;
+	stop)    on_pi "sudo systemctl stop orrery"; echo "stopped" ;;
+	restart) on_pi "sudo systemctl restart orrery"; echo "restarted" ;;
+
+	rebuild)
+		# The Pi never builds the frontend: Vite stays on the laptop.
+		if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
+			echo "warning: uncommitted changes here; the Pi pulls from GitHub and will not see them" >&2
+		fi
+		echo "==> pulling code on the Pi"
+		on_pi "cd $REMOTE && git pull -q && git log --oneline -1"
+		echo "==> syncing backend dependencies"
+		on_pi "cd $REMOTE/backend && ~/.local/bin/uv sync -q --no-dev && echo ok"
+		echo "==> building the frontend here"
+		(cd "$ROOT/frontend" && npm install --silent && npm run build >/dev/null)
+		echo "==> copying the build across"
+		rsync -az --delete -e "ssh -o BatchMode=yes" "$ROOT/frontend/dist/" "$PI:$REMOTE/frontend/dist/"
+		echo "==> restarting"
+		on_pi "sudo systemctl restart orrery"
+		wait_healthy && echo "done, service healthy. Reload the page." \
+			|| { echo "service did not come back; try: orrery logs"; exit 1; }
+		;;
+
+	*)
+		cat <<'USAGE'
+orrery: the launcher for every app in the house, running on the Pi
+
+  orrery              open it in a browser
+  orrery status       app, Caddy, each app's health, certificate, temperature
+  orrery url          print the URL
+  orrery rebuild      after changing code: pull on the Pi, build the UI here, restart
+  orrery logs [n]     follow the app log
+  orrery ssh          shell onto the Pi
+  orrery start|stop|restart
+USAGE
+		;;
+esac

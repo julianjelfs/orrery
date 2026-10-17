@@ -1,0 +1,27 @@
+# Orrery, as a systemd service on the Pi.
+#
+# Binds loopback only. Caddy is the one process listening on the network, and its
+# config lives in the recipe-for-disaster repo because one file serves every app.
+# Install with deploy/install-pi.sh; don't edit the copy in /etc.
+
+[Unit]
+Description=Orrery
+Documentation=https://github.com/julianjelfs/orrery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=julian_jelfs
+WorkingDirectory=/home/julian_jelfs/orrery/backend
+# Straight at the venv, not `uv run`: uv re-resolves the environment on every start,
+# which costs a Pi 4 about twelve seconds before uvicorn gets a look in.
+ExecStart=/home/julian_jelfs/orrery/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8050
+Restart=always
+RestartSec=2
+# SD cards die of writes. Journal only.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

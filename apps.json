@@ -1,0 +1,84 @@
+[
+  {
+    "id": "recipes",
+    "name": "Recipe for Disaster",
+    "blurb": "The family recipe library",
+    "url": "https://recipes.julianjelfs.co.uk",
+    "port": 8010,
+    "health": "/api/health",
+    "color": "#ff6a2b",
+    "kind": "app",
+    "style": "lava",
+    "host": "pi"
+  },
+  {
+    "id": "triads",
+    "name": "Triad Trainer",
+    "blurb": "Every triad shape on the neck",
+    "url": "https://triads.julianjelfs.co.uk",
+    "port": 8000,
+    "health": "/api/health",
+    "color": "#c084fc",
+    "kind": "app",
+    "style": "strings",
+    "host": "pi"
+  },
+  {
+    "id": "tab",
+    "name": "Barre None",
+    "blurb": "Tab books, digitised and fingered",
+    "url": "https://tab.julianjelfs.co.uk",
+    "port": 8040,
+    "health": "/api/health",
+    "color": "#38bdf8",
+    "kind": "app",
+    "style": "ice",
+    "host": "pi"
+  },
+  {
+    "id": "hive",
+    "name": "Hive Monitor",
+    "blurb": "Is the heating working?",
+    "url": "https://hive.julianjelfs.co.uk",
+    "port": 8030,
+    "health": "/api/health",
+    "color": "#fbbf24",
+    "kind": "app",
+    "style": "honeycomb",
+    "host": "pi"
+  },
+  {
+    "id": "garmin",
+    "name": "Garmin MCP",
+    "blurb": "Training data for Claude. Click to copy the endpoint",
+    "url": "https://pi.tail50bfbf.ts.net:8447/mcp",
+    "port": 8020,
+    "health": "/mcp",
+    "color": "#34d399",
+    "kind": "service",
+    "style": "moon",
+    "host": "pi"
+  },
+  {
+    "id": "askance",
+    "name": "Askance",
+    "blurb": "Flatten a photo into a few values",
+    "url": "https://julianjelfs.github.io/askance-web/",
+    "health": "",
+    "color": "#e8e1d0",
+    "kind": "app",
+    "style": "values",
+    "host": "github"
+  },
+  {
+    "id": "allears",
+    "name": "All Ears",
+    "blurb": "Ear training on a nylon-string guitar",
+    "url": "https://julianjelfs.github.io/all_ears/",
+    "health": "",
+    "color": "#fb7185",
+    "kind": "app",
+    "style": "waves",
+    "host": "github"
+  }
+]

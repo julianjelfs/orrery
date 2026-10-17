@@ -25,6 +25,14 @@ Off both, the installed app still opens from its service worker. It says the Pi 
 reach, shows every Pi app's status as unknown rather than whatever it was last time, and
 asks the GitHub-hosted apps directly whether they're up.
 
+## Opening installed apps
+
+Installed on Android, Orrery opens each app through an `intent://` link rather than its
+plain URL, so Android hands it to that app's installed PWA instead of Chrome showing it in
+a Custom Tab inside Orrery. iOS has no way for one home screen web app to open another, so
+there an app opens in the in-app browser sheet. In a browser tab it's a normal link
+everywhere.
+
 ## Adding an app
 
 Add an entry to `apps.json`. The backend and the frontend both read it.
@@ -73,6 +81,9 @@ listens on the Pi's ports on the laptop.
    `test_invariant_5_...`.
 6. With no fresh report from the Pi, no app shows as up or down on the Pi's say-so.
    `invariant 6` tests in `frontend/src/lib/apps.test.ts`.
+7. Installed on Android, an app opens through an Android VIEW intent that falls back to its
+   URL. Anywhere else it opens at its plain URL. `invariant 7` tests in
+   `frontend/src/lib/apps.test.ts`.
 
 ```
 cd backend && uv run pytest

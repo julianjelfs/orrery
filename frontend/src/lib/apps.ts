@@ -76,3 +76,33 @@ export async function probeDirect(specs: AppSpec[]): Promise<Set<string>> {
   );
   return new Set(results.filter((id): id is string => id !== null));
 }
+
+/**
+ * Where to send the browser to open an app.
+ *
+ * Installed on Android, Orrery runs in its own standalone window, and Chrome keeps any
+ * link outside Orrery's scope in a Custom Tab instead of opening the installed app. An
+ * intent:// VIEW goes to Android instead, which hands the URL to whatever registered it:
+ * the app's installed PWA if there is one, else the browser. NEW_TASK (0x10000000) stops
+ * Orrery's window swallowing it. The fallback covers a browser that won't take intents.
+ *
+ * iOS has no equivalent: a home screen web app can't open another one, so it gets the
+ * plain URL like everything else.
+ */
+export function launchUrl(url: string, env: { android: boolean; standalone: boolean }): string {
+  if (!env.android || !env.standalone || !/^https?:\/\//.test(url)) return url;
+  const { protocol, host, pathname, search, hash } = new URL(url);
+  const fallback = encodeURIComponent(url);
+  return (
+    `intent://${host}${pathname}${search}${hash}#Intent;scheme=${protocol.slice(0, -1)};` +
+    `action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;` +
+    `launchFlags=0x10000000;S.browser_fallback_url=${fallback};end`
+  );
+}
+
+export function launchEnv() {
+  return {
+    android: /Android/i.test(navigator.userAgent),
+    standalone: window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches
+  };
+}

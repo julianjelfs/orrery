@@ -4,6 +4,8 @@
   import {
     APPS,
     fetchStatus,
+    launchEnv,
+    launchUrl,
     probeDirect,
     statusesFrom,
     type HostReadings,
@@ -135,7 +137,17 @@
     selected = id;
     await scene?.launch(id);
     flash = true;
-    setTimeout(() => window.location.assign(app.url), scene ? 140 : 0);
+    const target = launchUrl(app.url, launchEnv());
+    setTimeout(() => window.location.assign(target), scene ? 140 : 0);
+    // An intent hands off to another app and leaves this page where it was, mid-warp.
+    // Put it back once that app has taken over.
+    if (target !== app.url) setTimeout(() => resetLaunch(), 1500);
+  }
+
+  function resetLaunch() {
+    scene?.reset();
+    flash = false;
+    launching = null;
   }
 
   function choose(id: string | null) {
@@ -202,11 +214,7 @@
 
     // Coming back with the back button restores this page from the bfcache mid-warp.
     const onShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        scene?.reset();
-        flash = false;
-        launching = null;
-      }
+      if (e.persisted) resetLaunch();
     };
     window.addEventListener('pageshow', onShow);
 

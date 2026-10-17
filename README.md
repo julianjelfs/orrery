@@ -18,7 +18,7 @@ which is the Pi. Click one and the camera warps into it and opens the app.
 
 ## Where it runs
 
-On the Pi, behind Caddy, at https://app.julianjelfs.co.uk. That one URL works at home and
+On the Pi, behind Caddy, at https://apps.julianjelfs.co.uk. That one URL works at home and
 on any tailnet device with subnet routes on.
 
 Off both, the installed app still opens from its service worker. It says the Pi is out of

@@ -5,7 +5,7 @@ set -euo pipefail
 PI="${ORRERY_PI_HOST:-julian_jelfs@pi.local}"
 REMOTE="orrery"
 # One URL at home and away: the Pi's subnet route carries it over the tailnet.
-HOUSE_URL="https://app.julianjelfs.co.uk"
+HOUSE_URL="https://apps.julianjelfs.co.uk"
 ROOT="$(cd "$(dirname "$(readlink "${BASH_SOURCE[0]}" || echo "${BASH_SOURCE[0]}")")/.." && pwd)"
 
 on_pi() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$PI" "$@"; }
@@ -37,7 +37,7 @@ for k, v in json.load(sys.stdin)[\"apps\"].items():
 			else
 				printf "api       : NOT responding\n"
 			fi
-			printf "cert until: %s\n" "$(echo | openssl s_client -connect 127.0.0.1:443 -servername app.julianjelfs.co.uk 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
+			printf "cert until: %s\n" "$(echo | openssl s_client -connect 127.0.0.1:443 -servername apps.julianjelfs.co.uk 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
 			printf "disk      : %s used\n" "$(df -h / | awk "NR==2 {print \$5}")"
 			printf "cpu temp  : %.1fC\n" "$(awk "{print \$1/1000}" /sys/class/thermal/thermal_zone0/temp)"
 			printf "uptime    : %s\n" "$(uptime -p)"

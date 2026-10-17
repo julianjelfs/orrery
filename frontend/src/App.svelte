@@ -148,6 +148,9 @@
     scene?.reset();
     flash = false;
     launching = null;
+    // Coming back to Orrery should show the whole system, not the last app still zoomed.
+    selected = null;
+    hovered = null;
   }
 
   function choose(id: string | null) {

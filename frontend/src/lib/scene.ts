@@ -569,7 +569,7 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
       // The halo says the status too: the app's colour when up, red when down, grey unknown.
       const halo = p.status === 'up' ? p.uniforms.uColor.value : p.status === 'down' ? DOWN : UNKNOWN;
       p.atmoUniforms.uColor.value.lerp(halo, 1 - Math.exp(-3 * dt));
-      p.atmoUniforms.uIntensity.value = (p.status === 'down' ? 0.2 : p.status === 'unknown' ? 0.4 : 0.75) + p.hover * 1.4 + p.flash * 2;
+      p.atmoUniforms.uIntensity.value = (p.status === 'down' ? 0.2 : p.status === 'unknown' ? 0.4 : 0.75) + p.hover * (camera.aspect < 0.8 ? 0.5 : 1.4) + p.flash * 2;
 
       // Planets arrive one by one during the intro.
       const order = specs.findIndex((s) => s.id === id);
@@ -674,10 +674,12 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
     } else {
       // Lean in towards whatever you're looking at.
       const focused = focus ? planets.get(focus) : undefined;
+      // Gently on a phone, where the system is small and a lean crops it.
+      const portrait = camera.aspect < 0.8;
       focusAmount = damp(focusAmount, focused ? 1 : 0, 2.5, dt);
       lookGoal.set(0, -0.6, 0);
-      if (focused) lookGoal.lerp(planetWorld(focused, tmp), 0.4);
-      const d = view.distance * (1 - 0.14 * focusAmount);
+      if (focused) lookGoal.lerp(planetWorld(focused, tmp), portrait ? 0.15 : 0.4);
+      const d = view.distance * (1 - (portrait ? 0.04 : 0.14) * focusAmount);
       rig.position.set(0, 0, 0);
       camera.position.set(
         Math.sin(parallax.x * 0.06) * d * 0.2,

@@ -87,7 +87,8 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
   const coarse = window.matchMedia('(pointer: coarse)').matches;
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-  const pixelRatio = Math.min(window.devicePixelRatio, coarse ? 1.5 : 2);
+  // Phones get fewer pixels: the bloom and lens passes cost per pixel.
+  const pixelRatio = Math.min(window.devicePixelRatio, coarse ? 1.25 : 2);
   renderer.setPixelRatio(pixelRatio);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
@@ -435,10 +436,17 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
     camera.aspect = w / h;
+    // Portrait: the app list covers the bottom half, so frame the system in the top half
+    // by moving the projection centre down, and widen the lens to fit the inner orbits.
+    const portrait = camera.aspect < 0.8;
+    view.fov = portrait ? 58 : 45;
+    camera.fov = view.fov;
+    if (portrait) camera.setViewOffset(w, h, 0, h * 0.24, w, h);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     lens.uniforms.uResolution.value.set(w * pixelRatio, h * pixelRatio);
     // Portrait screens need to stand further back to see the outer orbits.
-    view.targetDistance = camera.aspect < 0.8 ? 34 : camera.aspect < 1.2 ? 27 : 21;
+    view.targetDistance = camera.aspect < 0.8 ? 23 : camera.aspect < 1.2 ? 27 : 21;
   }
   const ro = new ResizeObserver(resize);
   ro.observe(canvas);
@@ -495,7 +503,7 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
   };
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
-    const base = camera.aspect < 0.8 ? 34 : camera.aspect < 1.2 ? 27 : 21;
+    const base = camera.aspect < 0.8 ? 23 : camera.aspect < 1.2 ? 27 : 21;
     view.targetDistance = THREE.MathUtils.clamp(view.targetDistance * (1 + e.deltaY * 0.001), base * 0.55, base * 1.6);
   };
   canvas.addEventListener('pointerdown', onPointerDown);

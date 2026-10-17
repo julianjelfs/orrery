@@ -355,8 +355,11 @@
         }}
       >
         <span class="n">{pad(i + 1)}</span>
+        <span class="orb" aria-hidden="true"></span>
         <span class="dot s-{statuses[app.id]}"></span>
         <span class="name">{app.name}</span>
+        <span class="blurb-sm">{app.blurb}</span>
+        <span class="state s-{statuses[app.id]}">{statuses[app.id] === 'up' ? 'Online' : statuses[app.id] === 'down' ? 'Down' : 'Unknown'}</span>
       </a>
     {/each}
   </nav>

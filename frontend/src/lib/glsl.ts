@@ -345,16 +345,19 @@ void main() {
   float d = length(c);
   float ab = (0.004 + uWarp * 0.05) * d;
   vec3 col = vec3(0.0);
+  // One tap unless warping; eight for the zoom blur.
+  int taps = uWarp > 0.001 ? 8 : 1;
   for (int i = 0; i < 8; i++) {
+    if (i >= taps) break;
     float s = 1.0 - uWarp * 0.14 * float(i) / 8.0;
     vec2 uv = 0.5 + c * s;
     col.r += texture2D(tDiffuse, uv + c * ab).r;
     col.g += texture2D(tDiffuse, uv).g;
     col.b += texture2D(tDiffuse, uv - c * ab).b;
   }
-  col /= 8.0;
+  col /= float(taps);
   col *= smoothstep(1.05, 0.2, d * (1.0 + uWarp * 0.6));
-  col += (hash(vUv * uResolution + fract(uTime) * 100.0) - 0.5) * 0.035;
+  col += (hash(vUv * uResolution + fract(uTime) * 100.0) - 0.5) * 0.025;
   gl_FragColor = vec4(col, 1.0);
 }
 `;

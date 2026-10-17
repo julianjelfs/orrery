@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import mimetypes
 import os
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import host, probe
+from . import host, probe, stats
 
 # Not in every platform's table, and browsers want the right type before they will
 # offer to install the app.
@@ -23,6 +25,15 @@ app = FastAPI(title="Orrery", version="0.1.0")
 
 APPS = probe.load_apps()
 
+# The Pi apps, with the systemd units that run and back them up.
+COLLECTOR = stats.Collector(
+    [
+        stats.Unit(id=a["id"], unit=a["unit"], backup_unit=a.get("backup_unit"), host=urlparse(a["url"]).hostname)
+        for a in probe.load_raw()
+        if a.get("unit")
+    ]
+)
+
 
 @app.get("/api/health")
 def health() -> dict[str, str]:
@@ -32,7 +43,15 @@ def health() -> dict[str, str]:
 @app.get("/api/status")
 async def status() -> JSONResponse:
     apps = await probe.probe_all(APPS)
-    body = {"checked_at": int(time.time()), "host": host.readings(), "apps": apps}
+    try:
+        # systemctl and journalctl block, so keep them off the event loop.
+        readings = await asyncio.to_thread(COLLECTOR.collect)
+    except Exception:  # noqa: BLE001 - stats are a bonus; never lose the health checks over them
+        readings = {}
+    for app_id, s in readings.items():
+        if app_id in apps:
+            apps[app_id]["stats"] = s
+    body = {"checked_at": int(time.time()), "host": {**host.readings(), "disk_pct": stats.disk_used_pct()}, "apps": apps}
     # Live status must never be shown from a cache as if it were current.
     return JSONResponse(body, headers={"Cache-Control": "no-store"})
 

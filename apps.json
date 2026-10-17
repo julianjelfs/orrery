@@ -9,7 +9,9 @@
     "color": "#ff6a2b",
     "kind": "app",
     "style": "lava",
-    "host": "pi"
+    "host": "pi",
+    "unit": "recipes",
+    "backup_unit": "recipes-backup"
   },
   {
     "id": "triads",
@@ -21,7 +23,9 @@
     "color": "#c084fc",
     "kind": "app",
     "style": "strings",
-    "host": "pi"
+    "host": "pi",
+    "unit": "triads",
+    "backup_unit": "triads-backup"
   },
   {
     "id": "tab",
@@ -33,7 +37,9 @@
     "color": "#38bdf8",
     "kind": "app",
     "style": "ice",
-    "host": "pi"
+    "host": "pi",
+    "unit": "barre-none",
+    "backup_unit": "barre-none-backup"
   },
   {
     "id": "hive",
@@ -45,7 +51,9 @@
     "color": "#fbbf24",
     "kind": "app",
     "style": "honeycomb",
-    "host": "pi"
+    "host": "pi",
+    "unit": "hive",
+    "backup_unit": "hive-backup"
   },
   {
     "id": "garmin",
@@ -57,7 +65,9 @@
     "color": "#34d399",
     "kind": "service",
     "style": "moon",
-    "host": "pi"
+    "host": "pi",
+    "unit": "garmin-mcp",
+    "backup_unit": "garmin-backup"
   },
   {
     "id": "askance",

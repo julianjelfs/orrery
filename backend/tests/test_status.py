@@ -66,3 +66,49 @@ def test_invariant_5_an_app_off_the_pi_is_probed_at_its_public_url_and_pi_apps_o
     home = probe.App(id="home", port=8010, health="/api/health", url="https://home.example")
     assert probe.probe_url(away) == "https://example.github.io/away/"
     assert probe.probe_url(home) == "http://127.0.0.1:8010/api/health"
+
+
+SHOW = """Id=recipes.service
+ActiveState=active
+CPUUsageNSec=2000000000
+NRestarts=0
+MemoryCurrent=[not set]
+
+Id=recipes-backup.service
+ActiveState=inactive
+Result=success
+CPUUsageNSec=
+"""
+
+
+def test_invariant_7_each_unit_gets_its_own_block_and_missing_values_are_none_not_zero():
+    from app import stats
+
+    shown = stats.parse_show(SHOW)
+    assert shown["recipes.service"]["CPUUsageNSec"] == "2000000000"
+    assert shown["recipes.service"]["MemoryCurrent"] is None
+    assert shown["recipes-backup.service"]["Result"] == "success"
+    assert shown["recipes-backup.service"]["CPUUsageNSec"] is None
+
+
+def test_invariant_8_cpu_is_a_rate_between_samples_and_never_invented():
+    from app import stats
+
+    meter = stats.CpuMeter()
+    assert meter.sample("recipes", 1_000_000_000, now=100.0) is None  # nothing to compare yet
+    assert meter.sample("recipes", 1_500_000_000, now=110.0) == 5.0  # 0.5s of CPU in 10s
+    assert meter.sample("recipes", 100, now=120.0) is None  # counter went back: it restarted
+
+
+def test_invariant_9_status_still_reports_health_when_stats_fail(monkeypatch):
+    async def fake_probe_all(apps):
+        return {"recipes": {"up": True, "ms": 3}}
+
+    def broken():
+        raise RuntimeError("no systemd here")
+
+    monkeypatch.setattr(probe, "probe_all", fake_probe_all)
+    monkeypatch.setattr(main.COLLECTOR, "collect", broken)
+    response = TestClient(main.app).get("/api/status")
+    assert response.status_code == 200
+    assert response.json()["apps"]["recipes"] == {"up": True, "ms": 3}

@@ -29,8 +29,12 @@ class App:
     url: str
 
 
+def load_raw(path: Path = APPS_FILE) -> list[dict]:
+    return json.loads(path.read_text())
+
+
 def load_apps(path: Path = APPS_FILE) -> list[App]:
-    raw = json.loads(path.read_text())
+    raw = load_raw(path)
     return [App(id=a["id"], port=a.get("port"), health=a["health"], url=a["url"]) for a in raw]
 
 

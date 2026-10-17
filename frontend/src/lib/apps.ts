@@ -18,12 +18,63 @@ export interface HostReadings {
   uptime_s: number | null;
   mem_used_pct: number | null;
   load1: number | null;
+  disk_pct?: number | null;
+}
+
+/** What systemd and /proc say about a Pi app. Any reading can be missing. */
+export interface AppStats {
+  state: string | null;
+  cpu_pct: number | null;
+  mem_mb: number | null;
+  tasks: number | null;
+  restarts: number | null;
+  uptime_s: number | null;
+  errors_24h: number | null;
+  cert_days: number | null;
+  backup: { ok: boolean; age_s: number | null } | null;
+}
+
+export interface AppProbe {
+  up: boolean;
+  ms: number | null;
+  stats?: AppStats;
 }
 
 export interface StatusReport {
   checked_at: number;
   host: HostReadings;
-  apps: Record<string, { up: boolean; ms: number | null }>;
+  apps: Record<string, AppProbe>;
+}
+
+/** Backups run nightly; one missed night is a warning. */
+export const BACKUP_STALE_S = 36 * 3600;
+/** Caddy renews at 30 days left, so under 14 means renewal has been failing. */
+export const CERT_WARN_DAYS = 14;
+
+/**
+ * The things worth flagging about a running app, in the words the HUD shows. An app with
+ * none of these is healthy. Missing readings are not warnings: unknown is not bad.
+ */
+export function warningsFor(s: AppStats | undefined): string[] {
+  if (!s) return [];
+  const out: string[] = [];
+  if (s.backup && !s.backup.ok) out.push('Last backup failed');
+  else if (s.backup?.age_s != null && s.backup.age_s > BACKUP_STALE_S)
+    out.push(`No backup for ${Math.round(s.backup.age_s / 3600)}h`);
+  if (s.errors_24h) out.push(`${s.errors_24h} error${s.errors_24h === 1 ? '' : 's'} in 24h`);
+  if (s.restarts) out.push(`Restarted ${s.restarts}×`);
+  if (s.cert_days != null && s.cert_days < CERT_WARN_DAYS) out.push(`Certificate expires in ${s.cert_days}d`);
+  return out;
+}
+
+export function formatDuration(s: number | null | undefined): string {
+  if (s == null) return '--';
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 export const APPS = registry as AppSpec[];

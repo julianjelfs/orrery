@@ -9,7 +9,14 @@ which is the Pi. Click one and the camera warps into it and opens the app.
   planet. A planet that answers flashes. One that doesn't goes grey, cracks and flickers
   red, and its halo turns red.
 - The top right shows the Pi's own readings: CPU temperature (with a sparkline), load,
-  memory and uptime.
+  memory, disk and uptime.
+- Each app on the Pi reports what systemd and `/proc` say about it: CPU, memory, uptime,
+  when its last backup ran and whether it worked, errors in its journal over the last 24
+  hours, restarts, and how long its certificate has left. A busy app spins faster. One with
+  something to look at (a failed or stale backup, errors, restarts, a certificate under 14
+  days) flares amber, and the warning shows in the focus panel and on the phone list.
+  None of this needs root: Orrery's user can read it all. Memory is summed from the
+  processes' RSS, because the Pi boots with the memory cgroup off.
 - Hover a planet and time slows down. Drag to spin the system, scroll to zoom, press 1 to
   7 to pick one and Enter to go. On a phone, the first tap shows what a planet is and the
   second launches it.
@@ -37,6 +44,8 @@ everywhere.
 
 Add an entry to `apps.json`. The backend and the frontend both read it.
 
+- `unit` and `backup_unit`: the systemd services that run and back up a Pi app, for its
+  stats. Leave them out and the app gets a health check only.
 - `port` and `health`: the app's loopback port and health path on the Pi. Leave `port` out
   for an app that isn't on the Pi; the Pi then asks `url` + `health` instead.
 - `host`: `pi` puts it inside the belt, anything else outside.
@@ -84,6 +93,16 @@ listens on the Pi's ports on the laptop.
 7. Installed on Android, an app opens through an Android VIEW intent that falls back to its
    URL. Anywhere else it opens at its plain URL. `invariant 7` tests in
    `frontend/src/lib/apps.test.ts`.
+8. Each systemd unit's readings come from its own block of `systemctl show`, and a value
+   systemd doesn't have is missing, not zero. `test_invariant_8_...` in
+   `backend/tests/test_status.py`.
+9. CPU % is the rate between two samples; the first sample and a counter that went
+   backwards (a restart) give no number rather than a made-up one. `test_invariant_9_...`.
+10. If collecting stats fails, `/api/status` still reports every app's health.
+    `test_invariant_10_...`.
+11. A failed or stale backup, journal errors, restarts and a certificate under 14 days are
+    each flagged, and missing readings are not. `invariant 11` tests in
+    `frontend/src/lib/apps.test.ts`.
 
 ```
 cd backend && uv run pytest

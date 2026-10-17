@@ -4,6 +4,8 @@
   import {
     APPS,
     fetchStatus,
+    formatDuration,
+    warningsFor,
     launchEnv,
     launchUrl,
     probeDirect,
@@ -27,6 +29,8 @@
   let direct = $state<Set<string>>(new Set());
   let lastCheck = $state<number | null>(null);
   let temps = $state<number[]>([]);
+  // Recent response times per app, for the sparkline in the focus panel.
+  let latency = $state<Record<string, number[]>>({});
   let now = $state(Date.now());
 
   let hovered = $state<string | null>(null);
@@ -55,6 +59,13 @@
     scene?.setStatus(s, reachable);
   });
   $effect(() => {
+    const vitals: Record<string, { cpu: number; warn: boolean }> = {};
+    for (const [id, a] of Object.entries(report?.apps ?? {})) {
+      vitals[id] = { cpu: a.stats?.cpu_pct ?? 0, warn: warningsFor(a.stats).length > 0 };
+    }
+    scene?.setVitals(vitals);
+  });
+  $effect(() => {
     const id = selected;
     scene?.highlight(id);
   });
@@ -74,21 +85,31 @@
     const d = new Date(now);
     return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   });
-  function uptime(s: number | null) {
-    if (s == null) return '--';
-    const d = Math.floor(s / 86400);
-    const h = Math.floor((s % 86400) / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    return d ? `${d}d ${pad(h)}h` : `${pad(h)}h ${pad(m)}m`;
-  }
   const sinceCheck = $derived(lastCheck == null ? null : Math.max(0, Math.round((now - lastCheck) / 1000)));
 
-  const spark = $derived.by(() => {
-    if (temps.length < 2) return '';
-    const lo = Math.min(...temps) - 1;
-    const hi = Math.max(...temps) + 1;
-    return temps.map((t, i) => `${(i / (temps.length - 1)) * 60},${16 - ((t - lo) / (hi - lo)) * 16}`).join(' ');
-  });
+  function sparkPoints(values: number[], pad = 1) {
+    if (values.length < 2) return '';
+    const lo = Math.min(...values) - pad;
+    const hi = Math.max(...values) + pad;
+    return values.map((v, i) => `${(i / (values.length - 1)) * 60},${16 - ((v - lo) / (hi - lo)) * 16}`).join(' ');
+  }
+  const spark = $derived(sparkPoints(temps));
+
+  const piStats = $derived(
+    Object.entries(report?.apps ?? {}).flatMap(([id, a]) => (a.stats ? [{ id, s: a.stats }] : []))
+  );
+  const totalMem = $derived(Math.round(piStats.reduce((sum, { s }) => sum + (s.mem_mb ?? 0), 0)));
+  const warningCount = $derived(piStats.reduce((n, { s }) => n + warningsFor(s).length, 0));
+
+  function compactStats(id: string) {
+    const st = report?.apps[id]?.stats;
+    if (!st) return null;
+    const parts = [];
+    if (st.mem_mb != null) parts.push(`${Math.round(st.mem_mb)} MB`);
+    if (st.cpu_pct != null) parts.push(`${st.cpu_pct}% cpu`);
+    if (st.uptime_s != null) parts.push(`up ${formatDuration(st.uptime_s)}`);
+    return parts.join(' · ');
+  }
 
   function statusText(id: string) {
     const s = statuses[id];
@@ -106,6 +127,11 @@
       direct = new Set();
       lastCheck = Date.now();
       if (next.host.temp_c != null) temps = [...temps.slice(-29), next.host.temp_c];
+      const nextLatency = { ...latency };
+      for (const [id, a] of Object.entries(next.apps)) {
+        if (a.ms != null) nextLatency[id] = [...(nextLatency[id] ?? []).slice(-29), a.ms];
+      }
+      latency = nextLatency;
       scene?.pulse();
       return POLL_MS;
     }
@@ -301,7 +327,8 @@
       </div>
       <div><dt>Load</dt><dd>{host?.load1 ?? '--'}</dd></div>
       <div><dt>Mem</dt><dd>{host?.mem_used_pct != null ? `${host.mem_used_pct}%` : '--'}</dd></div>
-      <div><dt>Up</dt><dd>{uptime(host?.uptime_s ?? null)}</dd></div>
+      <div><dt>Disk</dt><dd>{host?.disk_pct != null ? `${host.disk_pct}%` : '--'}</dd></div>
+      <div><dt>Up</dt><dd>{formatDuration(host?.uptime_s)}</dd></div>
       <div>
         <dt>Link</dt>
         <dd class:bad={piReachable === false}>
@@ -321,6 +348,7 @@
   <section class="focus" aria-live="polite">
     {#if focus}
       {#key focus.id}
+        {@const probe = report?.apps[focus.id]}
         <div class="focus-inner" style="--c: {focus.color}">
           <div class="meta">
             <span>{pad(focusIndex + 1)} / {pad(APPS.length)}</span>
@@ -335,6 +363,37 @@
             {/each}
           </h2>
           <p class="blurb">{focus.blurb}</p>
+          {#if probe}
+            <dl class="vitals">
+              {#if probe.stats}
+                <div><dt>CPU</dt><dd>{probe.stats.cpu_pct ?? '--'}<small>%</small></dd></div>
+                <div><dt>Memory</dt><dd>{probe.stats.mem_mb != null ? Math.round(probe.stats.mem_mb) : '--'}<small>MB</small></dd></div>
+                <div><dt>Up</dt><dd>{formatDuration(probe.stats.uptime_s)}</dd></div>
+                <div>
+                  <dt>Backup</dt>
+                  <dd class:bad={probe.stats.backup && !probe.stats.backup.ok}>
+                    {probe.stats.backup ? (probe.stats.backup.ok ? formatDuration(probe.stats.backup.age_s) + ' ago' : 'failed') : 'none'}
+                  </dd>
+                </div>
+                <div><dt>Errors 24h</dt><dd class:warn={!!probe.stats.errors_24h}>{probe.stats.errors_24h ?? '--'}</dd></div>
+                {#if probe.stats.cert_days != null}
+                  <div><dt>Cert</dt><dd>{probe.stats.cert_days}<small>days</small></dd></div>
+                {/if}
+              {/if}
+              <div class="ping">
+                <dt>Response</dt>
+                <dd>
+                  {probe.ms ?? '--'}<small>ms</small>
+                  {#if (latency[focus.id] ?? []).length > 1}
+                    <svg viewBox="0 0 60 16" class="spark" aria-hidden="true"><polyline points={sparkPoints(latency[focus.id], 2)} /></svg>
+                  {/if}
+                </dd>
+              </div>
+            </dl>
+            {#each warningsFor(probe.stats) as w}
+              <p class="warning">⚠ {w}</p>
+            {/each}
+          {/if}
           <button class="go" onclick={() => launch(focus.id)}>
             {focus.kind === 'service' ? 'Copy endpoint' : coarse ? 'Launch' : 'Click to launch'}
             <kbd>↵</kbd>
@@ -347,6 +406,14 @@
           <span>{APPS.length} worlds</span>
           <span class="status s-up"><b></b>{upCount} online</span>
           {#if downCount}<span class="status s-down"><b></b>{downCount} down</span>{/if}
+          {#if piStats.length}
+            <span>{totalMem} MB across {piStats.length} services</span>
+            {#if warningCount}
+              <span class="status s-warn"><b></b>{warningCount} to look at</span>
+            {:else}
+              <span>Backups fresh · no errors</span>
+            {/if}
+          {/if}
         </div>
         <h2 class="idle-title">Pick a world.</h2>
         <p class="blurb">{coarse ? 'Tap a planet. Drag to spin the system.' : 'Hover a planet, drag to spin, scroll to zoom, or press 1 to ' + APPS.length + '.'}</p>
@@ -371,7 +438,11 @@
         <span class="orb" aria-hidden="true"></span>
         <span class="dot s-{statuses[app.id]}"></span>
         <span class="name">{app.name}</span>
-        <span class="blurb-sm">{app.blurb}</span>
+        {#if warningsFor(report?.apps[app.id]?.stats).length}
+          <span class="blurb-sm warn">⚠ {warningsFor(report?.apps[app.id]?.stats)[0]}</span>
+        {:else}
+          <span class="blurb-sm">{compactStats(app.id) ?? app.blurb}</span>
+        {/if}
         <span class="state s-{statuses[app.id]}">{statuses[app.id] === 'up' ? 'Online' : statuses[app.id] === 'down' ? 'Down' : 'Unknown'}</span>
       </a>
     {/each}

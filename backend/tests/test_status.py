@@ -81,7 +81,7 @@ CPUUsageNSec=
 """
 
 
-def test_invariant_7_each_unit_gets_its_own_block_and_missing_values_are_none_not_zero():
+def test_invariant_8_each_unit_gets_its_own_block_and_missing_values_are_none_not_zero():
     from app import stats
 
     shown = stats.parse_show(SHOW)
@@ -91,7 +91,7 @@ def test_invariant_7_each_unit_gets_its_own_block_and_missing_values_are_none_no
     assert shown["recipes-backup.service"]["CPUUsageNSec"] is None
 
 
-def test_invariant_8_cpu_is_a_rate_between_samples_and_never_invented():
+def test_invariant_9_cpu_is_a_rate_between_samples_and_never_invented():
     from app import stats
 
     meter = stats.CpuMeter()
@@ -100,7 +100,7 @@ def test_invariant_8_cpu_is_a_rate_between_samples_and_never_invented():
     assert meter.sample("recipes", 100, now=120.0) is None  # counter went back: it restarted
 
 
-def test_invariant_9_status_still_reports_health_when_stats_fail(monkeypatch):
+def test_invariant_10_status_still_reports_health_when_stats_fail(monkeypatch):
     async def fake_probe_all(apps):
         return {"recipes": {"up": True, "ms": 3}}
 

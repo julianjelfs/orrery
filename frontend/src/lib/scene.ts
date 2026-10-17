@@ -16,6 +16,8 @@ export interface SceneEvents {
 
 export interface OrreryScene {
   setStatus(status: Record<string, Status>, piReachable: boolean | null): void;
+  /** Per app: CPU % (spins the planet) and whether anything needs looking at (amber flare). */
+  setVitals(vitals: Record<string, { cpu: number; warn: boolean }>): void;
   highlight(id: string | null): void;
   pulse(): void;
   launch(id: string): Promise<void>;
@@ -28,6 +30,7 @@ const STYLES: Record<string, number> = { lava: 0, strings: 1, ice: 2, honeycomb:
 const STATUS_VALUE: Record<Status, number> = { up: 1, down: 0, unknown: 0.5 };
 const DOWN = new THREE.Color('#ff2a2a');
 const UNKNOWN = new THREE.Color('#6f6a86');
+const WARN = new THREE.Color('#ffb020');
 
 // Pi apps orbit close in; the belt marks the edge of the house; apps hosted elsewhere
 // swing round outside it on tilted orbits of their own.
@@ -53,6 +56,8 @@ interface Planet {
   flash: number;
   status: Status;
   intro: number;
+  cpu: number;
+  warn: boolean;
 }
 
 interface Packet {
@@ -377,7 +382,9 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
       hover: 0,
       flash: 0,
       status: 'unknown',
-      intro: 0
+      intro: 0,
+      cpu: 0,
+      warn: false
     });
   });
 
@@ -516,6 +523,7 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
   const tmp = new THREE.Vector3();
   const tmp2 = new THREE.Vector3();
   const look = new THREE.Vector3();
+  const tmpColor = new THREE.Color();
   const lookGoal = new THREE.Vector3();
   let focusAmount = 0;
   let elapsed = 0;
@@ -561,14 +569,20 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
       p.flash = damp(p.flash, 0, 3, dt);
       p.angle += p.speed * dt * timeScale;
       p.pivot.rotation.y = p.angle;
-      p.body.rotation.y += dt * 0.15 * (0.3 + timeScale * 0.7);
+      // A busy app spins faster: 0.15 rad/s at rest, up to about 3 at a full core.
+      const spin = 0.15 + Math.min(p.cpu, 100) * 0.03;
+      p.body.rotation.y += dt * spin * (0.3 + timeScale * 0.7);
       p.uniforms.uTime.value = t;
       p.uniforms.uHover.value = p.hover;
       p.uniforms.uFlash.value = p.flash;
       p.uniforms.uStatus.value = damp(p.uniforms.uStatus.value, STATUS_VALUE[p.status], 3, dt);
       // The halo says the status too: the app's colour when up, red when down, grey unknown.
+      // A running app with something to look at (failed backup, errors, restarts, a dying
+      // cert) breathes amber in and out of its own colour.
+      const flare = p.status === 'up' && p.warn ? 0.5 + 0.5 * Math.sin(t * 3) : 0;
       const halo = p.status === 'up' ? p.uniforms.uColor.value : p.status === 'down' ? DOWN : UNKNOWN;
-      p.atmoUniforms.uColor.value.lerp(halo, 1 - Math.exp(-3 * dt));
+      tmpColor.copy(halo).lerp(WARN, flare);
+      p.atmoUniforms.uColor.value.lerp(tmpColor, 1 - Math.exp(-6 * dt));
       p.atmoUniforms.uIntensity.value = (p.status === 'down' ? 0.2 : p.status === 'unknown' ? 0.4 : 0.75) + p.hover * (camera.aspect < 0.8 ? 0.5 : 1.4) + p.flash * 2;
 
       // Planets arrive one by one during the intro.
@@ -725,6 +739,12 @@ export function createScene(canvas: HTMLCanvasElement, specs: AppSpec[], events:
       piAlive = reachable;
       planets.forEach((p, id) => {
         p.status = status[id] ?? 'unknown';
+      });
+    },
+    setVitals(vitals) {
+      planets.forEach((p, id) => {
+        p.cpu = vitals[id]?.cpu ?? 0;
+        p.warn = vitals[id]?.warn ?? false;
       });
     },
     highlight(id) {
